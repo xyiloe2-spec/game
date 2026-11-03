@@ -7,7 +7,33 @@
     <link rel="stylesheet" href="./style.css">
 
     <!-- Yandex Games SDK -->
-    <script src="/sdk.js"></script>
+    <!-- Yandex Games SDK -->
+    <script src="https://yandex.ru/games/sdk/v2"></script>
+
+    <!-- GitHub Pages Gzip Decompression Polyfill -->
+    <script>
+        if ('DecompressionStream' in window) {
+            const _origFetch = window.fetch;
+            window.fetch = async function(url, options) {
+                const response = await _origFetch(url, options);
+                const urlStr = (typeof url === 'string') ? url : (url && url.url ? url.url : '');
+                if (urlStr.endsWith('.gz') && !response.headers.get('Content-Encoding')) {
+                    const ds = new DecompressionStream('gzip');
+                    const decompStream = response.body.pipeThrough(ds);
+                    const contentType = urlStr.endsWith('.wasm.gz') ? 'application/wasm' :
+                                        urlStr.endsWith('.js.gz') ? 'application/javascript' : 'application/octet-stream';
+                    const headers = new Headers(response.headers);
+                    headers.set('Content-Type', contentType);
+                    return new Response(decompStream, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        headers: headers
+                    });
+                }
+                return response;
+            };
+        }
+    </script>
 
     <style>
         /* Убираем выделение по нажатию клавиш */
@@ -55,12 +81,12 @@
 
     <script>
         const hideFullScreenButton = "";
-        const buildUrl = "Build";
-        const loaderUrl = buildUrl + "/Farm.loader.js";
+        const buildUrl = ".";
+        const loaderUrl = "Farm.loader.js";
         const config = {
-            dataUrl: buildUrl + "/Farm.data.gz",
-            frameworkUrl: buildUrl + "/Farm.framework.js.gz",
-            codeUrl: buildUrl + "/Farm.wasm.gz",
+            dataUrl: "Farm.data.gz",
+            frameworkUrl: "Farm.framework.js.gz",
+            codeUrl: "Farm.wasm.gz",
         streamingAssetsUrl: "StreamingAssets",
             companyName: "Intersot",
             productName: "FarmSimulator3D",
@@ -167,13 +193,13 @@
                     console.error(message);
                 });
             };
-            if (LocalHost())
-                StartUnityInstance_IfUnloaded();
+            StartUnityInstance_IfUnloaded();
         };
 
         function StartUnityInstance_IfUnloaded() {
-            if (spinner.style.display !== "none")
+            if (typeof StartUnityInstance === 'function' && spinner.style.display !== 'none') {
                 StartUnityInstance();
+            }
         }
 
         function LocalHost() {
@@ -186,7 +212,11 @@
         InitYSDK();
         async function InitYSDK() {
             try {
-                if (LocalHost()) return;
+                if (LocalHost() || typeof YaGames === 'undefined') {
+                    console.log('Standalone mode or YaGames undefined');
+                    StartUnityInstance_IfUnloaded();
+                    return;
+                }
 
                 console.log('Init Yandex SDK');
                 ysdk = await YaGames.init();
