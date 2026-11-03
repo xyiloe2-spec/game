@@ -16,24 +16,28 @@
             const _origFetch = window.fetch;
             window.fetch = async function(url, options) {
                 const response = await _origFetch(url, options);
+                if (!response.body || (options && options.method === 'HEAD')) {
+                    return response;
+                }
                 const urlStr = (typeof url === 'string') ? url : (url && url.url ? url.url : '');
                 if (urlStr.endsWith('.gz') && !response.headers.get('Content-Encoding')) {
                     try {
                         const ds = new DecompressionStream('gzip');
                         const decompStream = response.body.pipeThrough(ds);
-                        const buffer = await new Response(decompStream).arrayBuffer();
                         const contentType = urlStr.endsWith('.wasm.gz') ? 'application/wasm' :
                                             urlStr.endsWith('.js.gz') ? 'application/javascript' : 'application/octet-stream';
-                        const headers = new Headers();
+                        const headers = new Headers(response.headers);
                         headers.set('Content-Type', contentType);
-                        headers.set('Content-Length', buffer.byteLength.toString());
-                        return new Response(buffer, {
+                        headers.delete('Content-Length');
+                        headers.delete('Content-Encoding');
+                        return new Response(decompStream, {
                             status: response.status,
                             statusText: response.statusText,
                             headers: headers
                         });
                     } catch (err) {
                         console.error('DecompressionStream error:', err);
+                        return response;
                     }
                 }
                 return response;
@@ -202,8 +206,10 @@
             StartUnityInstance_IfUnloaded();
         };
 
+        let unityInstanceStarted = false;
         function StartUnityInstance_IfUnloaded() {
-            if (typeof StartUnityInstance === 'function' && spinner.style.display !== 'none') {
+            if (typeof StartUnityInstance === 'function' && !unityInstanceStarted) {
+                unityInstanceStarted = true;
                 StartUnityInstance();
             }
         }
@@ -218,7 +224,7 @@
         InitYSDK();
         async function InitYSDK() {
             try {
-                if (LocalHost() || typeof YaGames === 'undefined') {
+                if (LocalHost() || typeof YaGames === 'undefined' || !window.location.host.includes('yandex')) {
                     console.log('Standalone mode or YaGames undefined');
                     StartUnityInstance_IfUnloaded();
                     return;
