@@ -18,17 +18,23 @@
                 const response = await _origFetch(url, options);
                 const urlStr = (typeof url === 'string') ? url : (url && url.url ? url.url : '');
                 if (urlStr.endsWith('.gz') && !response.headers.get('Content-Encoding')) {
-                    const ds = new DecompressionStream('gzip');
-                    const decompStream = response.body.pipeThrough(ds);
-                    const contentType = urlStr.endsWith('.wasm.gz') ? 'application/wasm' :
-                                        urlStr.endsWith('.js.gz') ? 'application/javascript' : 'application/octet-stream';
-                    const headers = new Headers(response.headers);
-                    headers.set('Content-Type', contentType);
-                    return new Response(decompStream, {
-                        status: response.status,
-                        statusText: response.statusText,
-                        headers: headers
-                    });
+                    try {
+                        const ds = new DecompressionStream('gzip');
+                        const decompStream = response.body.pipeThrough(ds);
+                        const buffer = await new Response(decompStream).arrayBuffer();
+                        const contentType = urlStr.endsWith('.wasm.gz') ? 'application/wasm' :
+                                            urlStr.endsWith('.js.gz') ? 'application/javascript' : 'application/octet-stream';
+                        const headers = new Headers();
+                        headers.set('Content-Type', contentType);
+                        headers.set('Content-Length', buffer.byteLength.toString());
+                        return new Response(buffer, {
+                            status: response.status,
+                            statusText: response.statusText,
+                            headers: headers
+                        });
+                    } catch (err) {
+                        console.error('DecompressionStream error:', err);
+                    }
                 }
                 return response;
             };
@@ -85,7 +91,7 @@
         const loaderUrl = "Farm.loader.js";
         const config = {
             dataUrl: "Farm.data.gz",
-            frameworkUrl: "Farm.framework.js.gz",
+            frameworkUrl: "Farm.framework.js",
             codeUrl: "Farm.wasm.gz",
         streamingAssetsUrl: "StreamingAssets",
             companyName: "Intersot",
