@@ -20,7 +20,7 @@
                     return response;
                 }
                 const urlStr = (typeof url === 'string') ? url : (url && url.url ? url.url : '');
-                if (urlStr.endsWith('.gz') && !response.headers.get('Content-Encoding')) {
+                if (urlStr.endsWith('.gz') && response.ok && !response.headers.get('Content-Encoding')) {
                     try {
                         const ds = new DecompressionStream('gzip');
                         const decompStream = response.body.pipeThrough(ds);
@@ -70,6 +70,9 @@
     </style>
 
     <!-- Additional head modules -->
+
+
+
 
 </head>
 <body class="dark">
@@ -311,6 +314,12 @@ console.log('Init Player ysdk');
 
         function RewardedShow(id) {
             try {
+                if (ysdk == null) {
+                    if (myGameInstance != null) {
+                        myGameInstance.SendMessage('YandexGame', 'RewardVideo', id);
+                    }
+                    return;
+                }
                 ysdk.adv.showRewardedVideo(
                     {
                         callbacks:
